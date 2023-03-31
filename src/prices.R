@@ -115,18 +115,10 @@ mapping <- c("ag" = 0,
 
 df$attic <- mapping[df$attic]
 
-# turn variables into factors
-df$basement <- as.factor(df$basement)
-df$attic <- as.factor(df$attic)
-df$rooms <- as.factor(df$rooms)
-df$bedrooms <- as.factor(df$bedrooms)
-df$bathrooms <- as.factor(df$bathrooms)
-df$toilets <- as.factor(df$toilets)
-
 # create new variable 'Randstad'
 df <- df %>%
   mutate(Randstad = case_when(Provincie == 'Drenthe' ~ 0,
-                              Provincie == 'Flevoland' ~ 1,
+                              Provincie == 'Flevoland' ~ 0,
                               Provincie == 'Fryslân' ~ 0,
                               Provincie == 'Gelderland' ~ 0,
                               Provincie == 'Groningen' ~ 0,
@@ -138,27 +130,93 @@ df <- df %>%
                               Provincie == 'Zeeland' ~ 0,
                               Provincie == 'Zuid-Holland' ~ 1))
 
+# create groups for energy labels
+df <- df %>%
+  mutate(label_group = case_when(`Energy label` == 'G' ~ 'very low',
+                                  `Energy label` == 'F' ~ 'very low',
+                                  `Energy label` == 'E' ~ 'low',
+                                  `Energy label` == 'D' ~ 'low',
+                                  `Energy label` == 'C' ~ 'medior',
+                                  `Energy label` == 'B' ~ 'medior',
+                                  `Energy label` == 'A' ~ 'high',
+                                  `Energy label` == 'A+' ~ 'high',
+                                  `Energy label` == 'A++' ~ 'very high',
+                                  `Energy label` == 'A+++' ~ 'very high',
+                                  `Energy label` == 'A++++' ~ 'very high',
+                                  `Energy label` == 'Niet verplicht' ~ 'unknown'))
+
+# create new variable called 'age' 
+x <- Sys.Date()
+x <- year(x)
+df$age <- x - as.numeric(df$`Build year`)
+
+# turn variables into factors
+df$basement <- as.factor(df$basement)
+df$attic <- as.factor(df$attic)
+df$rooms <- as.factor(df$rooms)
+df$bedrooms <- as.factor(df$bedrooms)
+df$bathrooms <- as.factor(df$bathrooms)
+df$toilets <- as.factor(df$toilets)
+df$Randstad <- as.factor(df$Randstad)
+
 df <- df %>% relocate(Randstad, .after = Provincie)
 df <- df %>% relocate(`House type`, .after = Garden)
 df <- df %>% relocate(Roof, .after = `House type`)
+df <- df %>% relocate(age, .after = `Build year`)
+df <- df %>% relocate(label_group, .after = `Energy label`)
 
 ############################
 ##   data visualization   ##
 ############################
 
+# living space and price
 ggplot(df, 
        aes(x = `Living space size (m2)`, 
            y = Price)) +
   geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Funda") + 
-  xlab("m2") + ylab("Prijs") +  theme_linedraw() + coord_cartesian(ylim = c(149000, 2000000), xlim = c(50, 400)) + 
+  xlab("m2") + ylab("price") +  theme_linedraw() + coord_cartesian(ylim = c(149000, 2000000), xlim = c(50, 400)) + 
   geom_smooth(method='lm')
 
+# age and price
+ggplot(df, 
+       aes(x = age, 
+           y = Price)) +
+  geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Funda") + 
+  xlab("age") + ylab("price") +  theme_linedraw() + coord_cartesian(ylim = c(200000, 800000), xlim = c(0, 250)) +
+  geom_smooth(method='lm')
+
+# build year and price
+ggplot(df, 
+       aes(x = `Build year`, 
+           y = Price)) +
+  geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Funda") + 
+  xlab("age") + ylab("price") +  theme_linedraw() + coord_cartesian(ylim = c(200000, 800000)) +
+  geom_smooth(method='lm') + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+# randstad and price
+ggplot(data = df, aes(x = Randstad, y = Price)) +
+  geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  coord_cartesian(ylim = c(200000, 800000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
+
+# province and price
 ggplot(data = df, aes(x = Provincie, y = Price)) +
   geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
   coord_cartesian(ylim = c(200000, 800000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
 
-df_spec
+# energy label and price
+ggplot(data = df, aes(x = label_group, y = Price)) +
+  geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
 
+# basement and price
+ggplot(data = df, aes(x = basement, y = Price)) +
+  geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
+
+# attic and price
+ggplot(data = df, aes(x = attic, y = Price)) +
+  geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
 
 ############################
 ## descriptive statistics ##
@@ -169,9 +227,24 @@ cor <- as.data.frame(as.table(cor(use = "complete.obs", df[, unlist(lapply(df, i
 cor <- cor[!duplicated(cor$Freq), ]
 
 ############################
-##                      ##
+##      modelling         ##
+############################
 
 # regression model
-model <- lm(Price ~ `Lot size (m2)`+`Living space size (m2)`+as.factor(rooms)+as.factor(bath_rooms)+
-              as.factor(bed_rooms)+as.factor(toilets)+as.factor(living_floors)+`Estimated neighbourhood price per m2`, data = df)
-summary(model)
+
+model0 <- lm(Price ~ `Living space size (m2)`, data = df)
+summary(model0)
+
+model1 <- lm(Price ~ Randstad, data = df)
+summary(model1)
+
+model2 <- lm(Price ~ Provincie, data = df)
+summary(model2)
+
+model3 <- lm(Price ~ age, data = df)
+summary(model3)
+
+model4 <- lm(Price ~ label_group, data = df)
+summary(model4)
+
+

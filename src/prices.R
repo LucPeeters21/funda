@@ -24,58 +24,123 @@ options(scipen = 999)
 setwd("C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data")
 
 # import funda and city data
-df <- read_excel("raw_data_for_excel_analysis.xlsx")
+df_funda <- read_excel("raw_data_for_excel_analysis.xlsx")
 df_places <- read_excel("plaatsnamen_nederland.xlsx")
-
-# remove na's, duplicates
-df_places <- na.omit(df_places)
-df_places <- df_places[!duplicated(df_places$City), ]
-
-# merge funda and city data
-df_full <- merge(df, df_places, by = 'City')
 
 ######################
 ## data preparation ##
 ######################
 
-# identify duplicated adresses
-df <- unique(df_full)
+# remove NA's and exact duplicates
+df_places <- na.omit(df_places)
+df_places <- df_places[!duplicated(df_places$City), ]
+
+# merge funda and city data
+df <- merge(df_funda, df_places, by = 'City')
+
+# subset only unique adresses after merge
+df <- unique(df)
+
+# remove 'build type' variable since it has only one value expect for two observations
+df <- df %>% select(-`Build type`)
+
+# relocate 'Gemeente' and 'Provincie' variables
+df <- df %>% relocate(Gemeente, .after = Address)
+df <- df %>% relocate(Provincie, .after = Gemeente)
+
+# remove 'Address'
+df <- df %>% select(-Address)
 
 # convert to correct data types
 df$Price <- as.numeric(df$Price)
 df$`Build year` <- as.character(df$`Build year`)
 
-# separate rooms into 'rooms' and 'bed_rooms'
-df <- separate(df, col=Rooms, into =c("rooms", "bed_rooms"), sep=" kamers ") 
-df$bed_rooms <- gsub('[(slaapkamers)]','',df$bed_rooms)
-df$bed_rooms <- gsub('[(]','',df$bed_rooms)
+# separate rooms into 'rooms' and 'bed_rooms' to create two separate variables
+df <- separate(df, col=Rooms, into =c("rooms", "bedrooms"), sep=" kamers ") 
+df$bedrooms <- gsub('[(slaapkamers)]','',df$bedrooms)
+df$bedrooms <- gsub('[(]','',df$bedrooms)
 df$rooms <- as.numeric(df$rooms)
-df$bed_rooms <- as.numeric(df$bed_rooms)
-df$rooms <- (df$rooms - df$bed_rooms)
+df$bedrooms <- as.numeric(df$bedrooms)
 
-# separate Toilet into 'bath_rooms' and 'toilets'
-df <- separate(df, col=Toilet, into =c("bath_rooms", "toilets"), sep=" en ") 
-df$bath_rooms <- gsub('[(badkamers)]','',df$bath_rooms)
+# separate Toilet into 'bathrooms' and 'toilets'
+df <- separate(df, col=Toilet, into =c("bathrooms", "toilets"), sep=" en ") 
+df$bathrooms <- gsub('[(badkamers)]','',df$bathrooms)
 df$toilets <- gsub('[(aparte toiletten)]','',df$toilets) 
-df$bath_rooms <- as.numeric(df$bath_rooms)
+df$bathrooms <- as.numeric(df$bathrooms)
 df$toilets <- as.numeric(df$toilets)
 
 # separate Floors into 'floors' and 'basement/attic' 
 df <- separate(df, col=Floors, into =c("living_floors", "basement"), sep=" woonla")
 df$`basement` <- gsub(',','',df$`basement`) 
 
-# duplicate 'basement' column and name 'attic' and 'vliering'
+# duplicate 'basement' column and name 'attic'
 df$attic = df$basement 
 df <- df %>% relocate(attic, .after = basement)
 
-# keep correct part of each string
-df$basement <- str_sub(df$basement, -6, -1)
-df$basement <- gsub('kelder','1',df$basement) 
-df$basement <- gsub('ag','0',df$basement)
-df$basement <- gsub('gen','0',df$basement)
-df$basement <- gsub('iering','0',df$basement)
-df$basement <- gsub('zolder','0',df$basement)
-df$basement <- as.numeric(df$basement)
+# turn 'basement' into 0's and 1's 
+mapping <- c("ag" = 0, 
+             "ag een vliering en een kelder" = 1, 
+             "ag een zolder en een kelder" = 1, 
+             "ag en een kelder" = 1,
+             "ag en een vliering" = 0,
+             "ag en een zolder" = 0,
+             "ag en een zolder met vliering" = 0,
+             "gen" = 0,
+             "gen een vliering en een kelder" = 1,
+             "gen een zolder en een kelder" = 1,
+             "gen een zolder met vliering en een kelder" = 1,
+             "gen en een kelder" = 1,
+             "gen en een vliering" = 0,
+             "gen en een zolder" = 0,
+             "gen en een zolder met vliering" = 1)
+
+df$basement <- mapping[df$basement]
+
+# turn 'attic' into 0's and 1's
+mapping <- c("ag" = 0, 
+             "ag een vliering en een kelder" = 1, 
+             "ag een zolder en een kelder" = 1, 
+             "ag en een kelder" = 0,
+             "ag en een vliering" = 1,
+             "ag en een zolder" = 1,
+             "ag en een zolder met vliering" = 1,
+             "gen" = 0,
+             "gen een vliering en een kelder" = 1,
+             "gen een zolder en een kelder" = 1,
+             "gen een zolder met vliering en een kelder" = 1,
+             "gen en een kelder" = 0,
+             "gen en een vliering" = 1,
+             "gen en een zolder" = 1,
+             "gen en een zolder met vliering" = 1)
+
+df$attic <- mapping[df$attic]
+
+# turn variables into factors
+df$basement <- as.factor(df$basement)
+df$attic <- as.factor(df$attic)
+df$rooms <- as.factor(df$rooms)
+df$bedrooms <- as.factor(df$bedrooms)
+df$bathrooms <- as.factor(df$bathrooms)
+df$toilets <- as.factor(df$toilets)
+
+# create new variable 'Randstad'
+df <- df %>%
+  mutate(Randstad = case_when(Provincie == 'Drenthe' ~ 0,
+                              Provincie == 'Flevoland' ~ 1,
+                              Provincie == 'Fryslân' ~ 0,
+                              Provincie == 'Gelderland' ~ 0,
+                              Provincie == 'Groningen' ~ 0,
+                              Provincie == 'Limburg' ~ 0,
+                              Provincie == 'Noord-Brabant' ~ 0,
+                              Provincie == 'Noord-Holland' ~ 1,
+                              Provincie == 'Overijssel' ~ 0,
+                              Provincie == 'Utrecht' ~ 1,
+                              Provincie == 'Zeeland' ~ 0,
+                              Provincie == 'Zuid-Holland' ~ 1))
+
+df <- df %>% relocate(Randstad, .after = Provincie)
+df <- df %>% relocate(`House type`, .after = Garden)
+df <- df %>% relocate(Roof, .after = `House type`)
 
 ############################
 ##   data visualization   ##

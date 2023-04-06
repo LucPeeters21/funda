@@ -261,28 +261,8 @@ df <- df %>% relocate(placement, .after = `House type`)
 df <- df %>% relocate(age, .after = `Build year`)
 df <- df %>% relocate(label_group, .after = `Energy label`)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+write.csv(df,
+          "C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data/df.csv", fileEncoding = "UTF-8")
 
 
 ############################
@@ -295,6 +275,14 @@ ggplot(df,
            y = Price)) +
   geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Funda") + 
   xlab("m2") + ylab("price") +  theme_linedraw() + coord_cartesian(ylim = c(149000, 2000000), xlim = c(50, 400)) + 
+  geom_smooth(method='lm')
+
+# lot size and price
+ggplot(df, 
+       aes(x = `Lot size (m2)`, 
+           y = Price)) +
+  geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Funda") + 
+  xlab("m2") + ylab("price") +  theme_linedraw() + coord_cartesian(ylim = c(149000, 2000000), xlim = c(50, 1000)) + 
   geom_smooth(method='lm')
 
 # age and price

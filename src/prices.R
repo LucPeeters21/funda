@@ -150,6 +150,100 @@ x <- Sys.Date()
 x <- year(x)
 df$age <- x - as.numeric(df$`Build year`)
 
+# create rooftype variable
+df <- df %>%
+  mutate(Roof = case_when(Roof == 'Dwarskap' ~ 'transverse',
+                          Roof == 'Dwarskap bedekt met bitumineuze dakbedekking' ~ 'transverse',
+                          Roof == 'Dwarskap bedekt met bitumineuze dakbedekking en pannen' ~ 'transverse',
+                          Roof == 'Dwarskap bedekt met metaal' ~ 'transverse',
+                          Roof == 'Dwarskap bedekt met overig' ~ 'transverse',
+                          Roof == 'Dwarskap bedekt met pannen' ~ 'transverse',
+                          Roof == 'Lessenaardak' ~ 'shed',
+                          Roof == 'Lessenaardak bedekt met asbest' ~ 'shed',
+                          Roof == 'Lessenaardak bedekt met bitumineuze dakbedekking' ~ 'shed',
+                          Roof == 'Lessenaardak bedekt met bitumineuze dakbedekking en pannen' ~ 'shed',
+                          Roof == 'Lessenaardak bedekt met kunststof' ~ 'shed',
+                          Roof == 'Lessenaardak bedekt met leisteen' ~ 'shed',
+                          Roof == 'Lessenaardak bedekt met metaal' ~ 'shed',
+                          Roof == 'Lessenaardak bedekt met overig' ~ 'shed',
+                          Roof == 'Lessenaardak bedekt met overig en pannen' ~ 'shed',
+                          Roof == 'Lessenaardak bedekt met pannen' ~ 'shed',
+                          Roof == 'Mansarde dak' ~ 'mansard',
+                          Roof == 'Mansarde dak bedekt met bitumineuze dakbedekking' ~ 'mansard',
+                          Roof == 'Mansarde dak bedekt met bitumineuze dakbedekking en leisteen' ~ 'mansard',
+                          Roof == 'Mansarde dak bedekt met bitumineuze dakbedekking en pannen' ~ 'mansard',
+                          Roof == 'Mansarde dak bedekt met overig' ~ 'mansard',
+                          Roof == 'Mansarde dak bedekt met pannen' ~ 'mansard',
+                          Roof == 'Mansarde dak bedekt met riet' ~ 'mansard',
+                          Roof == 'Plat dak' ~ 'flat',
+                          Roof == 'Plat dak bedekt met bitumineuze dakbedekking' ~ 'flat',
+                          Roof == 'Plat dak bedekt met bitumineuze dakbedekking en overig' ~ 'flat',
+                          Roof == 'Plat dak bedekt met bitumineuze dakbedekking en pannen' ~ 'flat',
+                          Roof == 'Plat dak bedekt met kunststof' ~ 'flat',
+                          Roof == 'Plat dak bedekt met leisteen' ~ 'flat',
+                          Roof == 'Plat dak bedekt met overig' ~ 'flat',
+                          Roof == 'Plat dak bedekt met pannen' ~ 'flat',
+                          Roof == 'Samengesteld dak' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met asbest en bitumineuze dakbedekking' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met asbest en pannen' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met bitumineuze dakbedekking' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met bitumineuze dakbedekking en kunststof' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met bitumineuze dakbedekking en leisteen' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met bitumineuze dakbedekking en metaal' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met bitumineuze dakbedekking en overig' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met bitumineuze dakbedekking en pannen' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met bitumineuze dakbedekking en riet' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met bitumineuze dakbedekking, leisteen en metaal' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met bitumineuze dakbedekking, pannen en riet' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met kunststof en leisteen' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met kunststof en pannen' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met leisteen' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met metaal' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met overig' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met overig en pannen' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met pannen' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met pannen en riet' ~ 'composite',
+                          Roof == 'Samengesteld dak bedekt met riet' ~ 'composite',
+                          Roof == 'Schilddak' ~ 'hip',
+                          Roof == 'Schilddak bedekt met asbest en pannen' ~ 'hip',
+                          Roof == 'Schilddak bedekt met bitumineuze dakbedekking en pannen' ~ 'hip',
+                          Roof == 'Schilddak bedekt met bitumineuze dakbedekking, overig en pannen' ~ 'hip',
+                          Roof == 'Schilddak bedekt met leisteen' ~ 'hip',
+                          Roof == 'Schilddak bedekt met metaal' ~ 'hip',
+                          Roof == 'Schilddak bedekt met overig en pannen' ~ 'hip',
+                          Roof == 'Schilddak bedekt met pannen' ~ 'hip',
+                          Roof == 'Schilddak bedekt met pannen en riet' ~ 'hip',
+                          Roof == 'Schilddak bedekt met riet' ~ 'hip',
+                          Roof == 'Tentdak' ~ 'tented',
+                          Roof == 'Tentdak bedekt met bitumineuze dakbedekking' ~ 'tented',
+                          Roof == 'Tentdak bedekt met bitumineuze dakbedekking en pannen' ~ 'tented',
+                          Roof == 'Tentdak bedekt met pannen' ~ 'tented',
+                          Roof == 'Tentdak bedekt met riet' ~ 'tented',
+                          Roof == 'Zadeldak' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met asbest' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met asbest en pannen' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met bitumineuze dakbedekking' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met bitumineuze dakbedekking en kunststof' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met bitumineuze dakbedekking en metaal' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met bitumineuze dakbedekking en overig' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met bitumineuze dakbedekking en pannen' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met bitumineuze dakbedekking, overig en pannen' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met kunststof' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met kunststof en pannen' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met leisteen' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met metaal' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met metaal en pannen' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met pannen' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met pannen en riet' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met riet' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met overig' ~ 'gable',
+                          Roof == 'Zadeldak bedekt met overig en pannen' ~ 'gable'))
+
+# create new house type variable
+df <- separate(df, col=`House type`, into =c("House type", "placement"), sep=", ") 
+df <- separate(df, col=placement, into =c("placement", "rest"), sep=" ")
+df <- df %>% select(-rest)
+
 # turn variables into factors
 df$basement <- as.factor(df$basement)
 df$attic <- as.factor(df$attic)
@@ -159,11 +253,37 @@ df$bathrooms <- as.factor(df$bathrooms)
 df$toilets <- as.factor(df$toilets)
 df$Randstad <- as.factor(df$Randstad)
 
+# order variables
 df <- df %>% relocate(Randstad, .after = Provincie)
 df <- df %>% relocate(`House type`, .after = Garden)
 df <- df %>% relocate(Roof, .after = `House type`)
+df <- df %>% relocate(placement, .after = `House type`)
 df <- df %>% relocate(age, .after = `Build year`)
 df <- df %>% relocate(label_group, .after = `Energy label`)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ############################
 ##   data visualization   ##
@@ -218,6 +338,21 @@ ggplot(data = df, aes(x = attic, y = Price)) +
   geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
   coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
 
+# roof and price
+ggplot(data = df, aes(x = Roof, y = Price)) +
+  geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
+
+# House type and price
+ggplot(data = df, aes(x = `House type`, y = Price)) +
+  geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  coord_cartesian(ylim = c(200000, 2000000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
+
+# placement and price
+ggplot(data = df, aes(x = placement, y = Price)) +
+  geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+  coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
+
 ############################
 ## descriptive statistics ##
 ############################
@@ -230,7 +365,7 @@ cor <- cor[!duplicated(cor$Freq), ]
 ##      modelling         ##
 ############################
 
-# regression model
+# separate model
 
 model0 <- lm(Price ~ `Living space size (m2)`, data = df)
 summary(model0)
@@ -247,4 +382,17 @@ summary(model3)
 model4 <- lm(Price ~ label_group, data = df)
 summary(model4)
 
+model5 <- lm(Price ~ Roof, data = df)
+summary(model5)
 
+model6 <- lm(Price ~ `House type`, data = df)
+summary(model6)
+
+model7 <- lm(Price ~ placement, data = df)
+summary(model7)
+
+
+# total model
+
+model <- lm(Price ~ `Living space size (m2)` + Randstad + Provincie + age + label_group + Roof + `House type` + placement, data = df)
+summary(model)

@@ -14,6 +14,16 @@ library(stringr)
 library(Hmisc) 
 library(forcats) 
 library(ggthemes)
+library(pals)
+library(maps)
+library(shiny)
+library(shinythemes)
+library(sf)
+library(mapview)
+library(leaflet)
+library(plotly)
+library(tm)
+library(wordcloud)
 
 options(scipen = 999)
 #################
@@ -26,6 +36,9 @@ setwd("C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/
 # import funda and city data
 df_funda <- read_excel("raw_data_for_excel_analysis.xlsx")
 df_places <- read_excel("plaatsnamen_nederland.xlsx")
+
+## add province to dataframe (optionally) https://public.opendatasoft.com/explore/dataset/georef-netherlands-postcode-pc4/table/
+coord <- read_xlsx("georef-netherlands-postcode-pc4.xlsx")
 
 ######################
 ## data preparation ##
@@ -261,6 +274,16 @@ df <- df %>% relocate(placement, .after = `House type`)
 df <- df %>% relocate(age, .after = `Build year`)
 df <- df %>% relocate(label_group, .after = `Energy label`)
 
+# connect geo points to gemeente names and create new frame for map
+coord <- coord %>% rename(Gemeente = `Gemeente name`)
+coord <- coord %>% select(Gemeente, `Geo Point`) 
+coord <- separate(coord, col= `Geo Point`, into =c("latitude", "longitude"), sep=", ") 
+coord <-  coord[!duplicated(coord$Gemeente),]
+topo <- merge(df, coord, by = "Gemeente")
+topo <- topo %>% select(Gemeente, City, Provincie, Price, placement, longitude, latitude)
+avg <- mean(df$Price, na.rm = TRUE)
+topo$above_avg <- ifelse(topo$Price>avg,"1","0")
+
 write.csv(df,
           "C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data/df.csv", fileEncoding = "UTF-8")
 
@@ -268,6 +291,23 @@ write.csv(df,
 ############################
 ##   data visualization   ##
 ############################
+
+# map
+topo$longitude <- as.numeric(topo$longitude)
+topo$latitude <- as.numeric(topo$latitude)
+
+# above average selection
+pal0 <- colorFactor(topo.colors(8), topo$placement)
+map0 <- leaflet(topo) %>% addTiles %>% 
+  addCircleMarkers(clusterOptions = markerClusterOptions(), color = ~pal0(topo$above_avg), lat = ~latitude, lng = ~longitude, label = topo$placement) %>%  addLegend(pal = pal0, values = ~placement)
+map0
+
+# house category selection
+pal1 <- colorFactor(topo.colors(2), topo$above_avg)
+map1 <- leaflet(topo) %>% addTiles %>% 
+  addCircleMarkers(clusterOptions = markerClusterOptions(), color = ~pal1(topo$above_avg), lat = ~latitude, lng = ~longitude, label = topo$above_avg) %>%  addLegend(pal = pal1, values = ~above_avg)
+map1
+
 
 # living space and price
 ggplot(df, 
@@ -384,3 +424,135 @@ summary(model7)
 
 model <- lm(Price ~ `Living space size (m2)` + Randstad + Provincie + age + label_group + Roof + `House type` + placement, data = df)
 summary(model)
+
+
+
+
+#######################
+## shiny application ##
+#######################
+
+# Define UI for application that draws a histogram 
+ui <- fluidPage(theme = shinytheme("cerulean"),
+                
+                # Application title
+                titlePanel("Nederlandse huizenmarkt"),
+                
+                # Navigation bar - Klantenkaart
+                navbarPage("Huizenkaart", 
+                           
+                           # Show output
+                           mainPanel(
+                             tabsetPanel(
+                               tabPanel("Type woning", leafletOutput("map0", width = "100%", height = 800)),
+                               tabPanel("Prijscategorie", leafletOutput("map1", width = "100%", height = 800)),
+                             ))
+                ),
+                
+                # Navigation bar - Product
+                navbarPage("Boxplots", 
+                           
+                           # Show output
+                           mainPanel(
+                             tabsetPanel(
+                               tabPanel("Provincie", plotlyOutput("provincie")),
+                               tabPanel("Type woning", plotlyOutput("typewoning")),
+
+                             ))
+                ),
+                
+                # Navigation bar - Project
+                navbarPage("Scatterplots", 
+                           
+                           # Show output
+                           mainPanel(
+                             tabsetPanel(
+                               tabPanel("Woonruimte", plotlyOutput("woonruimte")),
+
+                             ))
+                ),
+                
+                # Navigation bar - Evaluatie
+                navbarPage("Barplots", 
+                           
+                           # Show output
+                           mainPanel(
+                             tabsetPanel(
+
+                             ))
+                ),
+                
+                # Navigation bar - Ontwikkeling
+                navbarPage("Regressie", 
+                           
+                           # Show output
+                           mainPanel(
+                             tabsetPanel(
+
+                             ))
+                ),
+                
+                # Navigation bar - Data
+                navbarPage("Data"),
+                
+                # Show output
+                mainPanel(
+                  dataTableOutput("table")
+                )
+)
+
+# Define server logic required to draw output
+server <- function(input, output) {
+  
+  output$provincie <- renderPlotly({
+    
+    ggplot(data = df, aes(x = Provincie, y = Price)) +
+      geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+      coord_cartesian(ylim = c(200000, 800000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
+    
+  })
+  
+  output$typewoning <- renderPlotly({
+    
+    ggplot(data = df, aes(x = `House type`, y = Price)) +
+      geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
+      coord_cartesian(ylim = c(200000, 2000000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
+    
+  })
+  
+  output$woonruimte <- renderPlotly({
+    
+    ggplot(df, 
+           aes(x = `Living space size (m2)`, 
+               y = Price)) +
+      geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Funda") + 
+      xlab("m2") + ylab("price") +  theme_linedraw() + coord_cartesian(ylim = c(149000, 2000000), xlim = c(50, 400)) + 
+      geom_smooth(method='lm')
+  })
+  
+  output$map0 <- renderLeaflet({
+    
+    map0
+    
+  })
+  
+  output$map1 <- renderLeaflet({
+    
+    map1
+    
+  })
+  
+  output$table <- renderDataTable({
+    
+    df <- df
+  })
+  
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+
+
+
+
+

@@ -40,6 +40,11 @@ df_places <- read_excel("plaatsnamen_nederland.xlsx")
 ## add province to dataframe (optionally) https://public.opendatasoft.com/explore/dataset/georef-netherlands-postcode-pc4/table/
 coord <- read_xlsx("georef-netherlands-postcode-pc4.xlsx")
 
+
+
+
+
+
 ######################
 ## data preparation ##
 ######################
@@ -266,6 +271,9 @@ df$bathrooms <- as.factor(df$bathrooms)
 df$toilets <- as.factor(df$toilets)
 df$Randstad <- as.factor(df$Randstad)
 
+# add log of house price
+df$log_price <- log(df$Price)
+
 # order variables
 df <- df %>% relocate(Randstad, .after = Provincie)
 df <- df %>% relocate(`House type`, .after = Garden)
@@ -273,6 +281,7 @@ df <- df %>% relocate(Roof, .after = `House type`)
 df <- df %>% relocate(placement, .after = `House type`)
 df <- df %>% relocate(age, .after = `Build year`)
 df <- df %>% relocate(label_group, .after = `Energy label`)
+df <- df %>% relocate(log_price, .after = Price)
 
 # connect geo points to gemeente names and create new frame for map
 coord <- coord %>% rename(Gemeente = `Gemeente name`)
@@ -288,9 +297,21 @@ write.csv(df,
           "C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data/df.csv", fileEncoding = "UTF-8")
 
 
+
+
+
+
+
+
 ############################
 ##   data visualization   ##
 ############################
+
+# distribution of house prices
+ggplot(df, aes(x = Price, fill = ..count..)) + geom_histogram(binwidth = 5000) + coord_cartesian(xlim = c(0, 2000000))
+
+# distribution of log house prices
+ggplot(df, aes(x = log_price, fill = ..count..)) + geom_histogram()
 
 # map
 topo$longitude <- as.numeric(topo$longitude)
@@ -381,20 +402,26 @@ ggplot(data = df, aes(x = placement, y = Price)) +
   geom_boxplot() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
   coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
 
-############################
-## descriptive statistics ##
-############################
 
-# correlation matrix
-cor <- as.data.frame(as.table(cor(use = "complete.obs", df[, unlist(lapply(df, is.numeric))])))
-cor <- cor[!duplicated(cor$Freq), ]
+
+
+
+
+
+
+
 
 ############################
 ##      modelling         ##
 ############################
 
-# separate model
+#### create train and test sets
+set.seed(1)
+sample <- sample(c(TRUE, FALSE), nrow(df), replace=TRUE, prob=c(0.7,0.3))
+train  <- df[sample, ]
+test   <- df[!sample, ]
 
+#### separate model
 model0 <- lm(Price ~ `Living space size (m2)`, data = df)
 summary(model0)
 
@@ -420,10 +447,24 @@ model7 <- lm(Price ~ placement, data = df)
 summary(model7)
 
 
-# total model
-
-model <- lm(Price ~ `Living space size (m2)` + Randstad + Provincie + age + label_group + Roof + `House type` + placement, data = df)
+#### total model
+model <- lm(Price ~ `Living space size (m2)`+Randstad+Provincie+age+label_group+Roof+`House type`+placement, data = df)
 summary(model)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

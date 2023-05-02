@@ -24,6 +24,15 @@ library(leaflet)
 library(plotly)
 library(tm)
 library(wordcloud)
+library(gridExtra)
+library(ggplot2)
+library(scales)
+library(mice)
+library(randomForest) 
+library(data.table)
+library(corrplot) 
+library(GGally)
+library(e1071)
 
 options(scipen = 999)
 #################
@@ -33,17 +42,14 @@ options(scipen = 999)
 # set working directory
 setwd("C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data")
 
-# import funda and city data
+# import funda
 df_funda <- read_excel("raw_data_for_excel_analysis.xlsx")
+
+# import city data
 df_places <- read_excel("plaatsnamen_nederland.xlsx")
 
-## add province to dataframe (optionally) https://public.opendatasoft.com/explore/dataset/georef-netherlands-postcode-pc4/table/
+# import spatial data (optionally) https://public.opendatasoft.com/explore/dataset/georef-netherlands-postcode-pc4/table/
 coord <- read_xlsx("georef-netherlands-postcode-pc4.xlsx")
-
-
-
-
-
 
 ######################
 ## data preparation ##
@@ -270,9 +276,7 @@ df$bedrooms <- as.factor(df$bedrooms)
 df$bathrooms <- as.factor(df$bathrooms)
 df$toilets <- as.factor(df$toilets)
 df$Randstad <- as.factor(df$Randstad)
-
-# add log of house price
-df$log_price <- log(df$Price)
+df$living_floors <- as.factor(df$living_floors)
 
 # order variables
 df <- df %>% relocate(Randstad, .after = Provincie)
@@ -281,7 +285,7 @@ df <- df %>% relocate(Roof, .after = `House type`)
 df <- df %>% relocate(placement, .after = `House type`)
 df <- df %>% relocate(age, .after = `Build year`)
 df <- df %>% relocate(label_group, .after = `Energy label`)
-df <- df %>% relocate(log_price, .after = Price)
+
 
 # connect geo points to gemeente names and create new frame for map
 coord <- coord %>% rename(Gemeente = `Gemeente name`)
@@ -292,6 +296,14 @@ topo <- merge(df, coord, by = "Gemeente")
 topo <- topo %>% select(Gemeente, City, Provincie, Price, placement, longitude, latitude)
 avg <- mean(df$Price, na.rm = TRUE)
 topo$above_avg <- ifelse(topo$Price>avg,"1","0")
+
+# impute missing numeric data by mean centering
+colSums(sapply(df, is.na))
+
+df$Price[which(is.na(df$Price))] <- mean(df$Price,na.rm = T)
+df$age[which(is.na(df$age))] <- mean(df$age,na.rm = T)
+df$`Estimated neighbourhood price per m2`[which(is.na(df$`Estimated neighbourhood price per m2`))] <- mean(df$`Estimated neighbourhood price per m2`,na.rm = T)
+
 
 write.csv(df,
           "C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data/df.csv", fileEncoding = "UTF-8")
@@ -309,9 +321,6 @@ write.csv(df,
 
 # distribution of house prices
 ggplot(df, aes(x = Price, fill = ..count..)) + geom_histogram(binwidth = 5000) + coord_cartesian(xlim = c(0, 2000000))
-
-# distribution of log house prices
-ggplot(df, aes(x = log_price, fill = ..count..)) + geom_histogram()
 
 # map
 topo$longitude <- as.numeric(topo$longitude)
@@ -404,24 +413,117 @@ ggplot(data = df, aes(x = placement, y = Price)) +
 
 
 
+#######################################
+##      modelling - random forest    ##
+#######################################
 
-
-
-
-
-
-
-############################
-##      modelling         ##
-############################
-
-#### create train and test sets
+# create train and test sets
 set.seed(1)
 sample <- sample(c(TRUE, FALSE), nrow(df), replace=TRUE, prob=c(0.7,0.3))
 train  <- df[sample, ]
 test   <- df[!sample, ]
 
-#### separate model
+# data structure
+str(train)
+str(test)
+
+# summary statistics
+summary(train[,sapply(train[,1:24], typeof) == "integer"])
+summary(test[,sapply(train[,1:24], typeof) == "integer"])
+
+# train datasets from numeric and categorical/factor
+cat_var <- names(train)[which(sapply(train, is.character))]
+fac_var <- names(train)[which(sapply(train, is.factor))]
+num_var <- names(train)[which(sapply(train, is.numeric))]
+
+train_cat <- train[cat_var]
+train_fac <- train[fac_var]
+train_num <- train[num_var]
+
+# create barplot function
+plotHist <- function(data_in, i) 
+{
+  data <- data.frame(x=data_in[[i]])
+  p <- ggplot(data=data, aes(x=factor(x))) + stat_count() + xlab(colnames(data_in)[i]) + theme_light() + 
+    theme(axis.text.x = element_text(angle = 90, hjust =1))
+  return (p)
+}
+
+# create density plot function
+plotDen <- function(data_in, i){
+  data <- data.frame(x=data_in[[i]], Price = data_in$Price)
+  p <- ggplot(data= data) + geom_line(aes(x = x), stat = 'density', size = 1,alpha = 1.0) +
+    xlab(paste0((colnames(data_in)[i]), '\n', 'Skewness: ',round(skewness(data_in[[i]], na.rm = TRUE), 2))) + theme_light() 
+  return(p)
+  
+}
+
+# create function to call both types of plots
+doPlots <- function(data_in, fun, ii, ncol=3) 
+{
+  pp <- list()
+  for (i in ii) {
+    p <- fun(data_in=data_in, i=i)
+    pp <- c(pp, list(p))
+  }
+  do.call("grid.arrange", c(pp, ncol=ncol))
+}
+
+# call barplots
+doPlots(train_cat, fun = plotHist, ii = 1:4, ncol = 2)
+doPlots(train_cat, fun = plotHist, ii = 5:8, ncol = 2)
+doPlots(train_cat, fun = plotHist, ii = 9:11, ncol = 2)
+
+doPlots(train_fac, fun = plotHist, ii = 1:4, ncol = 2)
+doPlots(train_fac, fun = plotHist, ii = 5:8, ncol = 2)
+
+# call density plots
+doPlots(train_num, fun = plotDen, ii = 1:5, ncol = 2)
+
+# explore correlations
+correlations <- cor(na.omit(train_num))
+row_indic <- apply(correlations, 1, function(x) sum(x > 0 | x < 0) > 1)
+correlations<- correlations[row_indic ,row_indic ]
+corrplot(correlations, method="square")
+
+# find missing values in data
+colSums(sapply(train, is.na))
+colSums(sapply(test, is.na))
+
+# mark rows of test and train data
+train$isTrain <- 1
+test$isTrain <- 0
+
+# build random forest
+modelForest <- randomForest(Price~.,
+                            data = train)
+
+
+
+
+
+
+
+
+
+
+
+
+
+# add log of house price
+df$log_price <- log(df$Price)
+
+
+
+
+
+
+#######################################
+##        modelling - regression     ##
+#######################################
+
+
+# single models
 model0 <- lm(Price ~ `Living space size (m2)`, data = df)
 summary(model0)
 
@@ -446,10 +548,25 @@ summary(model6)
 model7 <- lm(Price ~ placement, data = df)
 summary(model7)
 
-
-#### total model
+# multivariate models
 model <- lm(Price ~ `Living space size (m2)`+Randstad+Provincie+age+label_group+Roof+`House type`+placement, data = df)
 summary(model)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

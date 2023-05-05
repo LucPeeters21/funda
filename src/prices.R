@@ -297,23 +297,17 @@ topo <- topo %>% select(Gemeente, City, Provincie, Price, placement, longitude, 
 avg <- mean(df$Price, na.rm = TRUE)
 topo$above_avg <- ifelse(topo$Price>avg,"1","0")
 
-# impute missing numeric data by mean centering
+# impute missing numeric data by mean centering and remove rows with missing data
 colSums(sapply(df, is.na))
 
 df$Price[which(is.na(df$Price))] <- mean(df$Price,na.rm = T)
 df$age[which(is.na(df$age))] <- mean(df$age,na.rm = T)
 df$`Estimated neighbourhood price per m2`[which(is.na(df$`Estimated neighbourhood price per m2`))] <- mean(df$`Estimated neighbourhood price per m2`,na.rm = T)
 
+#df <- na.omit(df)
 
 write.csv(df,
           "C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data/df.csv", fileEncoding = "UTF-8")
-
-
-
-
-
-
-
 
 ############################
 ##   data visualization   ##
@@ -412,183 +406,174 @@ ggplot(data = df, aes(x = placement, y = Price)) +
   coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
 
 
+# 
+# ###########################################################
+# ##      training and test set creation and statistics    ##
+# ###########################################################
+# 
+# # create train and test sets
+# set.seed(1)
+# sample <- sample(c(TRUE, FALSE), nrow(df), replace=TRUE, prob=c(0.7,0.3))
+# train  <- df[sample, ]
+# test   <- df[!sample, ]
+# 
+# # data structure
+# str(train)
+# str(test)
+# 
+# # summary statistics
+# summary(train[,sapply(train[,1:24], typeof) == "integer"])
+# summary(test[,sapply(train[,1:24], typeof) == "integer"])
+# 
+# # train datasets from numeric and categorical/factor
+# cat_var <- names(train)[which(sapply(train, is.character))]
+# fac_var <- names(train)[which(sapply(train, is.factor))]
+# num_var <- names(train)[which(sapply(train, is.numeric))]
+# 
+# train_cat <- train[cat_var]
+# train_fac <- train[fac_var]
+# train_num <- train[num_var]
+# 
+# # create barplot function
+# plotHist <- function(data_in, i) 
+# {
+#   data <- data.frame(x=data_in[[i]])
+#   p <- ggplot(data=data, aes(x=factor(x))) + stat_count() + xlab(colnames(data_in)[i]) + theme_light() + 
+#     theme(axis.text.x = element_text(angle = 90, hjust =1))
+#   return (p)
+# }
+# 
+# # create density plot function
+# plotDen <- function(data_in, i){
+#   data <- data.frame(x=data_in[[i]], Price = data_in$Price)
+#   p <- ggplot(data= data) + geom_line(aes(x = x), stat = 'density', size = 1,alpha = 1.0) +
+#     xlab(paste0((colnames(data_in)[i]), '\n', 'Skewness: ',round(skewness(data_in[[i]], na.rm = TRUE), 2))) + theme_light() 
+#   return(p)
+#   
+# }
+# 
+# # create function to call both types of plots
+# doPlots <- function(data_in, fun, ii, ncol=3) 
+# {
+#   pp <- list()
+#   for (i in ii) {
+#     p <- fun(data_in=data_in, i=i)
+#     pp <- c(pp, list(p))
+#   }
+#   do.call("grid.arrange", c(pp, ncol=ncol))
+# }
+# 
+# # call barplots
+# doPlots(train_cat, fun = plotHist, ii = 1:4, ncol = 2)
+# doPlots(train_cat, fun = plotHist, ii = 5:8, ncol = 2)
+# doPlots(train_cat, fun = plotHist, ii = 9:11, ncol = 2)
+# 
+# doPlots(train_fac, fun = plotHist, ii = 1:4, ncol = 2)
+# doPlots(train_fac, fun = plotHist, ii = 5:8, ncol = 2)
+# 
+# # call density plots
+# doPlots(train_num, fun = plotDen, ii = 1:5, ncol = 2)
+# 
+# # explore correlations
+# correlations <- cor(na.omit(train_num))
+# row_indic <- apply(correlations, 1, function(x) sum(x > 0 | x < 0) > 1)
+# correlations<- correlations[row_indic ,row_indic ]
+# corrplot(correlations, method="square")
+# 
+# # find missing values in data
+# colSums(sapply(train, is.na))
+# colSums(sapply(test, is.na))
+# 
+# # mark rows of test and train data
+# train$isTrain <- 1
+# test$isTrain <- 0
+# 
+# # add log of house price
+# #df$log_price <- log(df$Price)
 
-#######################################
-##      modelling - random forest    ##
-#######################################
 
-# create train and test sets
-set.seed(1)
-sample <- sample(c(TRUE, FALSE), nrow(df), replace=TRUE, prob=c(0.7,0.3))
-train  <- df[sample, ]
-test   <- df[!sample, ]
+df <- df %>% rename(energy = `Energy label`)
 
-# data structure
-str(train)
-str(test)
+#############################
+#### shiny application 1 ####
+#############################
 
-# summary statistics
-summary(train[,sapply(train[,1:24], typeof) == "integer"])
-summary(test[,sapply(train[,1:24], typeof) == "integer"])
+# define model
+newPredict <- df %>% select(Provincie, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, living_floors, `House type`, placement, Roof, Garden, Price)
+model <-  lm(Price ~ Provincie + energy + `Lot size (m2)` + `Living space size (m2)` + rooms + bedrooms + bathrooms + living_floors + `House type` + placement + Roof + Garden, data = df)
+newPredict$pred <-  predict(model, newPredict) 
 
-# train datasets from numeric and categorical/factor
-cat_var <- names(train)[which(sapply(train, is.character))]
-fac_var <- names(train)[which(sapply(train, is.factor))]
-num_var <- names(train)[which(sapply(train, is.numeric))]
+# define RMSE
+newPredict$error <- newPredict$Price - newPredict$pred
+newPredict$error_sqr <- newPredict$error * newPredict$error
+n <- nrow(newPredict)
+MSE <- sum(newPredict$error_sqr, na.rm = TRUE)/n
+RMSE <- sqrt(MSE)
 
-train_cat <- train[cat_var]
-train_fac <- train[fac_var]
-train_num <- train[num_var]
+newPredict <- df %>% select(Randstad, Provincie, energy, `Lot size (m2)`, age, rooms, bedrooms, bathrooms, toilets, living_floors, basement, attic, Price)
+model <-  lm(Price ~ Randstad + Provincie + energy +`Lot size (m2)`+ age + rooms + bedrooms + bathrooms + toilets + living_floors + basement + attic, data = df)
+newPredict$pred <-  predict(model, newPredict)
+newPredict$error <- newPredict$Price - newPredict$pred
+#newPredict <- reactive(newPredict)
+#newPredict <- reactiveValues()
 
-# create barplot function
-plotHist <- function(data_in, i) 
-{
-  data <- data.frame(x=data_in[[i]])
-  p <- ggplot(data=data, aes(x=factor(x))) + stat_count() + xlab(colnames(data_in)[i]) + theme_light() + 
-    theme(axis.text.x = element_text(angle = 90, hjust =1))
-  return (p)
-}
+# define ui
+ui <- fluidPage(theme = shinytheme("cyborg"),
+  
+  
+  headerPanel("Huizenprijs Generator"),
+  
+  sidebarPanel(
+    
+    selectInput(inputId = "city", label = "Provincie",
+                choices = df$Provincie,
+                selected = df$Provincie[1]),
+    
+    selectInput(inputId = "city", label = "Energie label",
+                choices = df$energy,
+                selected = df$energy[1]),
+    
+    actionButton("go", "Voorspel")
+  ),
+  
+  mainPanel(
+    sidebarPanel( width = 25,
+                  
+                  headerPanel("Prijs: "),
+                  
+                  textOutput("value")
+    )
+  )
+  
+)
 
-# create density plot function
-plotDen <- function(data_in, i){
-  data <- data.frame(x=data_in[[i]], Price = data_in$Price)
-  p <- ggplot(data= data) + geom_line(aes(x = x), stat = 'density', size = 1,alpha = 1.0) +
-    xlab(paste0((colnames(data_in)[i]), '\n', 'Skewness: ',round(skewness(data_in[[i]], na.rm = TRUE), 2))) + theme_light() 
-  return(p)
+
+
+# define server
+server <- function(input, output) {
+  
+  observeEvent(input$go,{
+    
+  })
+    
+    output$value <- renderText({newPredict$pred})
+  
   
 }
 
-# create function to call both types of plots
-doPlots <- function(data_in, fun, ii, ncol=3) 
-{
-  pp <- list()
-  for (i in ii) {
-    p <- fun(data_in=data_in, i=i)
-    pp <- c(pp, list(p))
-  }
-  do.call("grid.arrange", c(pp, ncol=ncol))
-}
+# run app
+shinyApp(ui, server)
 
-# call barplots
-doPlots(train_cat, fun = plotHist, ii = 1:4, ncol = 2)
-doPlots(train_cat, fun = plotHist, ii = 5:8, ncol = 2)
-doPlots(train_cat, fun = plotHist, ii = 9:11, ncol = 2)
 
-doPlots(train_fac, fun = plotHist, ii = 1:4, ncol = 2)
-doPlots(train_fac, fun = plotHist, ii = 5:8, ncol = 2)
 
-# call density plots
-doPlots(train_num, fun = plotDen, ii = 1:5, ncol = 2)
 
-# explore correlations
-correlations <- cor(na.omit(train_num))
-row_indic <- apply(correlations, 1, function(x) sum(x > 0 | x < 0) > 1)
-correlations<- correlations[row_indic ,row_indic ]
-corrplot(correlations, method="square")
 
-# find missing values in data
-colSums(sapply(train, is.na))
-colSums(sapply(test, is.na))
 
-# mark rows of test and train data
-train$isTrain <- 1
-test$isTrain <- 0
 
-# build random forest
-modelForest <- randomForest(Price~.,
-                            data = train)
 
-
-
-
-
-
-
-
-
-
-
-
-
-# add log of house price
-df$log_price <- log(df$Price)
-
-
-
-
-
-
-#######################################
-##        modelling - regression     ##
-#######################################
-
-
-# single models
-model0 <- lm(Price ~ `Living space size (m2)`, data = df)
-summary(model0)
-
-model1 <- lm(Price ~ Randstad, data = df)
-summary(model1)
-
-model2 <- lm(Price ~ Provincie, data = df)
-summary(model2)
-
-model3 <- lm(Price ~ age, data = df)
-summary(model3)
-
-model4 <- lm(Price ~ label_group, data = df)
-summary(model4)
-
-model5 <- lm(Price ~ Roof, data = df)
-summary(model5)
-
-model6 <- lm(Price ~ `House type`, data = df)
-summary(model6)
-
-model7 <- lm(Price ~ placement, data = df)
-summary(model7)
-
-# multivariate models
-model <- lm(Price ~ `Living space size (m2)`+Randstad+Provincie+age+label_group+Roof+`House type`+placement, data = df)
-summary(model)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#######################
-## shiny application ##
-#######################
+#############################
+#### shiny application 2 ####
+#############################
 
 # Define UI for application that draws a histogram 
 ui <- fluidPage(theme = shinytheme("cerulean"),

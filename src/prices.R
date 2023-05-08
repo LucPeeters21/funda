@@ -1,3 +1,4 @@
+library(olsrr)
 library(haven)
 library(dplyr)
 library(car)
@@ -174,6 +175,11 @@ x <- Sys.Date()
 x <- year(x)
 df$age <- x - as.numeric(df$`Build year`)
 
+# create age factors
+df$agecategory <- with(df, ifelse(age <= 10, '0-10',
+                                ifelse(age <= 50, '11-50', 
+                                       ifelse(age <= 100, '51-100', '100<' ))))
+
 # create rooftype variable
 df <- df %>%
   mutate(Roof = case_when(Roof == 'Dwarskap' ~ 'transverse',
@@ -304,7 +310,18 @@ df$Price[which(is.na(df$Price))] <- mean(df$Price,na.rm = T)
 df$age[which(is.na(df$age))] <- mean(df$age,na.rm = T)
 df$`Estimated neighbourhood price per m2`[which(is.na(df$`Estimated neighbourhood price per m2`))] <- mean(df$`Estimated neighbourhood price per m2`,na.rm = T)
 
-#df <- na.omit(df)
+# remove outliers
+
+# boxplot method (IQR) 
+summary(df$Price)
+outliers <- boxplot.stats(df$Price)$out
+outliers
+out_ind <- which(df$Price %in% c(outliers))
+out_ind
+out <- df[out_ind, ]
+
+df <- anti_join(df, out)
+summary(df$Price)
 
 write.csv(df,
           "C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data/df.csv", fileEncoding = "UTF-8")
@@ -494,28 +511,32 @@ ggplot(data = df, aes(x = placement, y = Price)) +
 
 df <- df %>% rename(energy = `Energy label`)
 
+
+
 #############################
-#### shiny application 1 ####
+####      modelling      ####
 #############################
 
 # define model
-newPredict <- df %>% select(Provincie, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, living_floors, `House type`, placement, Roof, Garden, Price)
-model <-  lm(Price ~ Provincie + energy + `Lot size (m2)` + `Living space size (m2)` + rooms + bedrooms + bathrooms + living_floors + `House type` + placement + Roof + Garden, data = df)
+newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, toilets, living_floors, `House type`, placement, Roof, Garden, Price)
+model <-  lm(Price ~ Provincie + Gemeente + energy + `Lot size (m2)`+`Living space size (m2)` + rooms * bedrooms * bathrooms + living_floors + `House type` + placement + Roof, data = df)
 newPredict$pred <-  predict(model, newPredict) 
+newPredict$error <- newPredict$Price - newPredict$pred
 
 # define RMSE
-newPredict$error <- newPredict$Price - newPredict$pred
 newPredict$error_sqr <- newPredict$error * newPredict$error
 n <- nrow(newPredict)
 MSE <- sum(newPredict$error_sqr, na.rm = TRUE)/n
 RMSE <- sqrt(MSE)
 
-newPredict <- df %>% select(Randstad, Provincie, energy, `Lot size (m2)`, age, rooms, bedrooms, bathrooms, toilets, living_floors, basement, attic, Price)
-model <-  lm(Price ~ Randstad + Provincie + energy +`Lot size (m2)`+ age + rooms + bedrooms + bathrooms + toilets + living_floors + basement + attic, data = df)
-newPredict$pred <-  predict(model, newPredict)
-newPredict$error <- newPredict$Price - newPredict$pred
-#newPredict <- reactive(newPredict)
-#newPredict <- reactiveValues()
+# visualise error distribution
+hist(newPredict$error, breaks=25)
+
+
+
+#############################
+#### shiny application 1 ####
+#############################
 
 # define ui
 ui <- fluidPage(theme = shinytheme("cyborg"),

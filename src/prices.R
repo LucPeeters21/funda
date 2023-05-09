@@ -35,6 +35,7 @@ library(corrplot)
 library(GGally)
 library(e1071)
 
+options(max.print=1000000)
 options(scipen = 999)
 #################
 ## data import ##
@@ -180,7 +181,7 @@ df$agecategory <- with(df, ifelse(age <= 10, '0-10',
                                 ifelse(age <= 50, '11-50', 
                                        ifelse(age <= 100, '51-100', '100<' ))))
 
-# create rooftype variable
+# create new rooftype variable
 df <- df %>%
   mutate(Roof = case_when(Roof == 'Dwarskap' ~ 'transverse',
                           Roof == 'Dwarskap bedekt met bitumineuze dakbedekking' ~ 'transverse',
@@ -269,6 +270,156 @@ df <- df %>%
                           Roof == 'Zadeldak bedekt met overig' ~ 'gable',
                           Roof == 'Zadeldak bedekt met overig en pannen' ~ 'gable'))
 
+# create new backyard variable
+mapping <- c("Achtertuin" = 1, 
+             "Achtertuin en patio/atrium" = 1, 
+             "Achtertuin en plaats" = 1, 
+             "Achtertuin en tuin rondom" = 1,
+             "Achtertuin en voortuin" = 1,
+             "Achtertuin en zijtuin" = 1,
+             "Achtertuin en zonneterras" = 1,
+             "Achtertuin, patio/atrium en plaats" = 1,
+             "Achtertuin, patio/atrium en voortuin" = 1,
+             "Achtertuin, plaats en voortuin" = 1,
+             "Achtertuin, plaats, voortuin en zijtuin" = 1,
+             "Achtertuin, plaats, voortuin en zonneterras" = 1,
+             "Achtertuin, tuin rondom, voortuin en zijtuin" = 1,
+             "Achtertuin, tuin rondom, voortuin, zijtuin en zonneterras" = 1,
+             "Achtertuin, voortuin en zijtuin" = 1,
+             "Achtertuin, voortuin en zonneterras" = 1,
+             "Achtertuin, voortuin, zijtuin en zonneterras" = 1,
+             "Achtertuin, zijtuin en zonneterras" = 1,
+             "Patio/atrium" = 0,
+             "Patio/atrium en plaats" = 0,
+             "Patio/atrium en tuin rondom" = 0,
+             "Patio/atrium en voortuin" = 0,
+             "Patio/atrium en zijtuin" = 0,
+             "Patio/atrium en zonneterras" = 0,
+             "Patio/atrium, plaats, zijtuin en zonneterras" = 0,
+             "Patio/atrium, tuin rondom en zonneterras" = 0,
+             "Patio/atrium, voortuin en zijtuin" = 0,
+             "Patio/atrium, voortuin en zonneterras" = 0,
+             "Plaats" = 0,
+             "Plaats en voortuin" = 0,
+             "Plaats en zijtuin" = 0,
+             "Plaats en zonneterras" = 0,
+             "Plaats, voortuin en zijtuin" = 0,
+             "Tuin rondom" = 0,
+             "Tuin rondom en voortuin" = 0,
+             "Tuin rondom en zijtuin" = 0,
+             "Tuin rondom en zonneterras" = 0,
+             "Voortuin" = 0,
+             "Voortuin en zijtuin" = 0,
+             "Voortuin en zonneterras" = 0,
+             "Voortuin, zijtuin en zonneterras" = 0,
+             "Zijtuin" = 0,
+             "Zonneterras" = 0)
+
+df$backyard <- mapping[df$Garden]
+df$backyard <- recode(df$backyard, "NA = 0")
+df$backyard <- as.factor(df$backyard)
+df <- df %>% relocate(backyard, .after = Garden)     
+
+# create new frontyard variable
+mapping <- c("Achtertuin" = 0, 
+             "Achtertuin en patio/atrium" = 0, 
+             "Achtertuin en plaats" = 0, 
+             "Achtertuin en tuin rondom" = 0,
+             "Achtertuin en voortuin" = 1,
+             "Achtertuin en zijtuin" = 0,
+             "Achtertuin en zonneterras" = 0,
+             "Achtertuin, patio/atrium en plaats" = 0,
+             "Achtertuin, patio/atrium en voortuin" = 1,
+             "Achtertuin, plaats en voortuin" = 1,
+             "Achtertuin, plaats, voortuin en zijtuin" = 1,
+             "Achtertuin, plaats, voortuin en zonneterras" = 1,
+             "Achtertuin, tuin rondom, voortuin en zijtuin" = 1,
+             "Achtertuin, tuin rondom, voortuin, zijtuin en zonneterras" = 1,
+             "Achtertuin, voortuin en zijtuin" = 1,
+             "Achtertuin, voortuin en zonneterras" = 1,
+             "Achtertuin, voortuin, zijtuin en zonneterras" = 1,
+             "Achtertuin, zijtuin en zonneterras" = 0,
+             "Patio/atrium" = 0,
+             "Patio/atrium en plaats" = 0,
+             "Patio/atrium en tuin rondom" = 0,
+             "Patio/atrium en voortuin" = 1,
+             "Patio/atrium en zijtuin" = 0,
+             "Patio/atrium en zonneterras" = 0,
+             "Patio/atrium, plaats, zijtuin en zonneterras" = 0,
+             "Patio/atrium, tuin rondom en zonneterras" = 0,
+             "Patio/atrium, voortuin en zijtuin" = 1,
+             "Patio/atrium, voortuin en zonneterras" = 1,
+             "Plaats" = 0,
+             "Plaats en voortuin" = 1,
+             "Plaats en zijtuin" = 0,
+             "Plaats en zonneterras" = 0,
+             "Plaats, voortuin en zijtuin" = 1,
+             "Tuin rondom" = 0,
+             "Tuin rondom en voortuin" = 1,
+             "Tuin rondom en zijtuin" = 0,
+             "Tuin rondom en zonneterras" = 0,
+             "Voortuin" = 1,
+             "Voortuin en zijtuin" = 1,
+             "Voortuin en zonneterras" = 1,
+             "Voortuin, zijtuin en zonneterras" = 1,
+             "Zijtuin" = 0,
+             "Zonneterras" = 0)
+
+df$frontyard <- mapping[df$Garden]
+df$frontyard <- recode(df$frontyard, "NA = 0")
+df$frontyard <- as.factor(df$frontyard)
+df <- df %>% relocate(frontyard, .before = backyard)     
+
+# create new aroundyard variable
+mapping <- c("Achtertuin" = 0, 
+             "Achtertuin en patio/atrium" = 0, 
+             "Achtertuin en plaats" = 0, 
+             "Achtertuin en tuin rondom" = 1,
+             "Achtertuin en voortuin" = 0,
+             "Achtertuin en zijtuin" = 0,
+             "Achtertuin en zonneterras" = 0,
+             "Achtertuin, patio/atrium en plaats" = 0,
+             "Achtertuin, patio/atrium en voortuin" = 0,
+             "Achtertuin, plaats en voortuin" = 0,
+             "Achtertuin, plaats, voortuin en zijtuin" = 0,
+             "Achtertuin, plaats, voortuin en zonneterras" = 0,
+             "Achtertuin, tuin rondom, voortuin en zijtuin" = 1,
+             "Achtertuin, tuin rondom, voortuin, zijtuin en zonneterras" = 1,
+             "Achtertuin, voortuin en zijtuin" = 0,
+             "Achtertuin, voortuin en zonneterras" = 0,
+             "Achtertuin, voortuin, zijtuin en zonneterras" = 0,
+             "Achtertuin, zijtuin en zonneterras" = 0,
+             "Patio/atrium" = 0,
+             "Patio/atrium en plaats" = 0,
+             "Patio/atrium en tuin rondom" = 1,
+             "Patio/atrium en voortuin" = 0,
+             "Patio/atrium en zijtuin" = 0,
+             "Patio/atrium en zonneterras" = 0,
+             "Patio/atrium, plaats, zijtuin en zonneterras" = 0,
+             "Patio/atrium, tuin rondom en zonneterras" = 1,
+             "Patio/atrium, voortuin en zijtuin" = 0,
+             "Patio/atrium, voortuin en zonneterras" = 0,
+             "Plaats" = 0,
+             "Plaats en voortuin" = 0,
+             "Plaats en zijtuin" = 0,
+             "Plaats en zonneterras" = 0,
+             "Plaats, voortuin en zijtuin" = 0,
+             "Tuin rondom" = 1,
+             "Tuin rondom en voortuin" = 1,
+             "Tuin rondom en zijtuin" = 1,
+             "Tuin rondom en zonneterras" = 1,
+             "Voortuin" = 0,
+             "Voortuin en zijtuin" = 0,
+             "Voortuin en zonneterras" = 0,
+             "Voortuin, zijtuin en zonneterras" = 0,
+             "Zijtuin" = 0,
+             "Zonneterras" = 0)
+
+df$aroundyard <- mapping[df$Garden]
+df$aroundyard <- recode(df$aroundyard, "NA = 0")
+df$aroundyard <- as.factor(df$aroundyard)
+df <- df %>% relocate(aroundyard, .after = backyard)  
+
 # create new house type variable
 df <- separate(df, col=`House type`, into =c("House type", "placement"), sep=", ") 
 df <- separate(df, col=placement, into =c("placement", "rest"), sep=" ")
@@ -309,6 +460,9 @@ colSums(sapply(df, is.na))
 df$Price[which(is.na(df$Price))] <- mean(df$Price,na.rm = T)
 df$age[which(is.na(df$age))] <- mean(df$age,na.rm = T)
 df$`Estimated neighbourhood price per m2`[which(is.na(df$`Estimated neighbourhood price per m2`))] <- mean(df$`Estimated neighbourhood price per m2`,na.rm = T)
+
+# replace missing data 
+df$toilets <- recode(df$toilets, "NA = 0")
 
 # remove outliers
 
@@ -518,8 +672,8 @@ df <- df %>% rename(energy = `Energy label`)
 #############################
 
 # define model
-newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, toilets, living_floors, `House type`, placement, Roof, Garden, Price)
-model <-  lm(Price ~ Provincie + Gemeente + energy + `Lot size (m2)`+`Living space size (m2)` + rooms * bedrooms * bathrooms + living_floors + `House type` + placement + Roof, data = df)
+newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, toilets, living_floors, `House type`, placement, Roof, frontyard, backyard, aroundyard, Price)
+model <-  lm(Price ~ Provincie + Gemeente + energy + `Lot size (m2)`+`Living space size (m2)` + rooms * bedrooms * bathrooms + toilets + living_floors + `House type` + placement + frontyard * backyard*aroundyard + Roof, data = df)
 newPredict$pred <-  predict(model, newPredict) 
 newPredict$error <- newPredict$Price - newPredict$pred
 
@@ -715,6 +869,7 @@ server <- function(input, output) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
+
 
 
 

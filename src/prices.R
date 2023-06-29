@@ -35,6 +35,7 @@ library(corrplot)
 library(GGally)
 library(e1071)
 library(openxlsx)
+library(caret)
 
 options(max.print=1000000)
 options(scipen = 999)
@@ -578,99 +579,14 @@ ggplot(data = df, aes(x = placement, y = Price)) +
   coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
 
 
-# 
-# ###########################################################
-# ##      training and test set creation and statistics    ##
-# ###########################################################
-# 
-# # create train and test sets
-# set.seed(1)
-# sample <- sample(c(TRUE, FALSE), nrow(df), replace=TRUE, prob=c(0.7,0.3))
-# train  <- df[sample, ]
-# test   <- df[!sample, ]
-# 
-# # data structure
-# str(train)
-# str(test)
-# 
-# # summary statistics
-# summary(train[,sapply(train[,1:24], typeof) == "integer"])
-# summary(test[,sapply(train[,1:24], typeof) == "integer"])
-# 
-# # train datasets from numeric and categorical/factor
-# cat_var <- names(train)[which(sapply(train, is.character))]
-# fac_var <- names(train)[which(sapply(train, is.factor))]
-# num_var <- names(train)[which(sapply(train, is.numeric))]
-# 
-# train_cat <- train[cat_var]
-# train_fac <- train[fac_var]
-# train_num <- train[num_var]
-# 
-# # create barplot function
-# plotHist <- function(data_in, i) 
-# {
-#   data <- data.frame(x=data_in[[i]])
-#   p <- ggplot(data=data, aes(x=factor(x))) + stat_count() + xlab(colnames(data_in)[i]) + theme_light() + 
-#     theme(axis.text.x = element_text(angle = 90, hjust =1))
-#   return (p)
-# }
-# 
-# # create density plot function
-# plotDen <- function(data_in, i){
-#   data <- data.frame(x=data_in[[i]], Price = data_in$Price)
-#   p <- ggplot(data= data) + geom_line(aes(x = x), stat = 'density', size = 1,alpha = 1.0) +
-#     xlab(paste0((colnames(data_in)[i]), '\n', 'Skewness: ',round(skewness(data_in[[i]], na.rm = TRUE), 2))) + theme_light() 
-#   return(p)
-#   
-# }
-# 
-# # create function to call both types of plots
-# doPlots <- function(data_in, fun, ii, ncol=3) 
-# {
-#   pp <- list()
-#   for (i in ii) {
-#     p <- fun(data_in=data_in, i=i)
-#     pp <- c(pp, list(p))
-#   }
-#   do.call("grid.arrange", c(pp, ncol=ncol))
-# }
-# 
-# # call barplots
-# doPlots(train_cat, fun = plotHist, ii = 1:4, ncol = 2)
-# doPlots(train_cat, fun = plotHist, ii = 5:8, ncol = 2)
-# doPlots(train_cat, fun = plotHist, ii = 9:11, ncol = 2)
-# 
-# doPlots(train_fac, fun = plotHist, ii = 1:4, ncol = 2)
-# doPlots(train_fac, fun = plotHist, ii = 5:8, ncol = 2)
-# 
-# # call density plots
-# doPlots(train_num, fun = plotDen, ii = 1:5, ncol = 2)
-# 
-# # explore correlations
-# correlations <- cor(na.omit(train_num))
-# row_indic <- apply(correlations, 1, function(x) sum(x > 0 | x < 0) > 1)
-# correlations<- correlations[row_indic ,row_indic ]
-# corrplot(correlations, method="square")
-# 
-# # find missing values in data
-# colSums(sapply(train, is.na))
-# colSums(sapply(test, is.na))
-# 
-# # mark rows of test and train data
-# train$isTrain <- 1
-# test$isTrain <- 0
-# 
-# # add log of house price
-# #df$log_price <- log(df$Price)
-
-
 df <- df %>% rename(energy = `Energy label`)
-
-
 
 #############################
 ####      modelling      ####
 #############################
+
+#df <- subset(df, Price < 800000)
+
 
 # define model
 newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, toilets, living_floors, `House type`, placement, Roof, frontyard, backyard, aroundyard, age, Price)
@@ -691,9 +607,18 @@ RMSE <- sqrt(MSE)
 # interpret RMSE 
 Ω <- (avg - RMSE)/avg # own measure --> (1-p)/x̄
 
+range <- max(df$Price) - min(df$Price) # by normalization
+NRMSE <- RMSE/range
 
 # visualise error distribution
 hist(newPredict$error, breaks=30)
+
+# variable importance
+importance <- varImp(model, scale = FALSE)
+
+
+
+
 
 
 

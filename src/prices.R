@@ -34,6 +34,7 @@ library(data.table)
 library(corrplot) 
 library(GGally)
 library(e1071)
+library(openxlsx)
 
 options(max.print=1000000)
 options(scipen = 999)
@@ -42,7 +43,7 @@ options(scipen = 999)
 #################
 
 # set working directory
-setwd("C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data")
+setwd("C:/Users/lpcs/Documents/onderzoek/funda/data")
 
 # import funda
 df_funda <- read_excel("raw_data_for_excel_analysis.xlsx")
@@ -478,7 +479,7 @@ df <- anti_join(df, out)
 summary(df$Price)
 
 write.csv(df,
-          "C:/Users/LPEE/OneDrive - Hoppenbrouwers Techniek B.V/Documenten/Projects/funda/data/df.csv", fileEncoding = "UTF-8")
+          "C:/Users/lpcs/Documents/onderzoek/funda/data/df.csv", fileEncoding = "UTF-8")
 
 ############################
 ##   data visualization   ##
@@ -672,10 +673,14 @@ df <- df %>% rename(energy = `Energy label`)
 #############################
 
 # define model
-newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, toilets, living_floors, `House type`, placement, Roof, frontyard, backyard, aroundyard, Price)
-model <-  lm(Price ~ Provincie + Gemeente + energy + `Lot size (m2)`+`Living space size (m2)` + rooms * bedrooms * bathrooms + toilets + living_floors + `House type` + placement + frontyard * backyard*aroundyard + Roof, data = df)
+newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, toilets, living_floors, `House type`, placement, Roof, frontyard, backyard, aroundyard, age, Price)
+model <-  lm(Price ~ Provincie + Gemeente + energy + `Lot size (m2)`+`Living space size (m2)` + rooms * bedrooms * bathrooms + toilets + living_floors + `House type` + placement + frontyard * backyard*aroundyard + Roof + as.factor(age), data = df)
+summary(model)
 newPredict$pred <-  predict(model, newPredict) 
 newPredict$error <- newPredict$Price - newPredict$pred
+
+# define average again
+avg <- mean(df$Price, na.rm = TRUE)
 
 # define RMSE
 newPredict$error_sqr <- newPredict$error * newPredict$error
@@ -683,8 +688,12 @@ n <- nrow(newPredict)
 MSE <- sum(newPredict$error_sqr, na.rm = TRUE)/n
 RMSE <- sqrt(MSE)
 
+# interpret RMSE 
+Ω <- (avg - RMSE)/avg # own measure --> (1-p)/x̄
+
+
 # visualise error distribution
-hist(newPredict$error, breaks=25)
+hist(newPredict$error, breaks=30)
 
 
 

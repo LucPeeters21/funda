@@ -589,11 +589,31 @@ df <- df %>% rename(energy = `Energy label`)
 
 
 # define model
-newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, toilets, living_floors, `House type`, placement, Roof, frontyard, backyard, aroundyard, age, Price)
-model <-  lm(Price ~ Provincie + Gemeente + energy + `Lot size (m2)`+`Living space size (m2)` + rooms * bedrooms * bathrooms + toilets + living_floors + `House type` + placement + frontyard * backyard*aroundyard + Roof + as.factor(age), data = df)
+newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, toilets, living_floors, `House type`, placement, Roof, frontyard, backyard, age, Price)
+model <-  lm(Price ~ Provincie + Gemeente + energy + `Lot size (m2)`+`Living space size (m2)` + rooms * bedrooms * bathrooms + toilets + living_floors + `House type` + placement + frontyard*backyard + Roof + as.factor(age), data = df)
 summary(model)
-newPredict$pred <-  predict(model, newPredict) 
+
+# add predictions and intervals to dataframe
+newPredict$fit0 <-  predict(model, newPredict) 
+intervals <- as.data.frame(predict(model, newPredict, interval = "confidence"))
+newPredict <- cbind(newPredict, intervals)
+newPredict$check <- newPredict$fit0 - newPredict$fit
+newPredict <- newPredict %>% select(-fit0, -check)
+newPredict <- newPredict %>% rename(pred = fit)
 newPredict$error <- newPredict$Price - newPredict$pred
+
+# plot actual and predicted
+ggplot(newPredict, aes(x=pred, y=Price)) +
+  geom_point() + geom_smooth(method='lm') + geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.5) +
+  labs(x='Predicted Values', y='Actual Values', title='Predicted vs. Actual Values')
+
+# check wether price is inbetween confidence interval
+newPredict$is_interval <- between(newPredict$Price, newPredict$lwr, newPredict$upr) 
+
+# plot amount of values in confidence interval
+hit <- newPredict %>% count(is_interval)
+ggplot(hit, aes(x=is_interval, y=n, fill = is_interval)) + 
+  geom_bar(stat = "identity") + geom_text(aes(label = n), vjust = 0)
 
 # define average again
 avg <- mean(df$Price, na.rm = TRUE)
@@ -615,6 +635,11 @@ hist(newPredict$error, breaks=30)
 
 # variable importance
 importance <- varImp(model, scale = FALSE)
+
+
+
+
+
 
 
 

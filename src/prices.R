@@ -36,6 +36,8 @@ library(GGally)
 library(e1071)
 library(openxlsx)
 library(caret)
+library(vip)
+library(earth)
 
 options(max.print=1000000)
 options(scipen = 999)
@@ -510,7 +512,7 @@ map1
 ggplot(df, 
        aes(x = `Living space size (m2)`, 
            y = Price)) +
-  geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Funda") + 
+  geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Living space vs. Price") + 
   xlab("m2") + ylab("price") +  theme_linedraw() + coord_cartesian(ylim = c(149000, 2000000), xlim = c(50, 400)) + 
   geom_smooth(method='lm')
 
@@ -518,7 +520,7 @@ ggplot(df,
 ggplot(df, 
        aes(x = `Lot size (m2)`, 
            y = Price)) +
-  geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Funda") + 
+  geom_point(stat = "identity", color = "black", position = position_dodge()) + ggtitle("Lot size vs. Price") + 
   xlab("m2") + ylab("price") +  theme_linedraw() + coord_cartesian(ylim = c(149000, 2000000), xlim = c(50, 1000)) + 
   geom_smooth(method='lm')
 
@@ -585,13 +587,16 @@ df <- df %>% rename(energy = `Energy label`)
 ####      modelling      ####
 #############################
 
-#df <- subset(df, Price < 800000)
+#df <- subset(df, Price < 600000)
 
 
 # define model
 newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Living space size (m2)`, rooms, bedrooms, bathrooms, toilets, living_floors, `House type`, placement, Roof, frontyard, backyard, age, Price)
 model <-  lm(Price ~ Provincie + Gemeente + energy + `Lot size (m2)`+`Living space size (m2)` + rooms * bedrooms * bathrooms + toilets + living_floors + `House type` + placement + frontyard*backyard + Roof + as.factor(age), data = df)
 summary(model)
+
+# model assumptions
+#assumptions <- plot(model)
 
 # add predictions and intervals to dataframe
 newPredict$fit0 <-  predict(model, newPredict) 
@@ -610,17 +615,25 @@ ggplot(newPredict, aes(x=pred, y=Price)) +
 # add point estimation hit
 newPredict$point <- between(newPredict$error, -5000, 5000)  
 point_hit <- newPredict %>% count(point)
+point_result <- point_hit %>% subset(point == "TRUE")
+point_result <- max(point_result$n)
+point_hitrate <- point_result/n
 ggplot(point_hit, aes(x=point, y=n, fill = point)) + 
   geom_bar(stat = "identity") + geom_text(aes(label = n), vjust = 0)
 
 # add confidence interval hit
 newPredict$interval <- between(newPredict$Price, newPredict$lwr, newPredict$upr) 
 confidence_hit <- newPredict %>% count(interval)
+confidence_result <- confidence_hit %>% subset(interval == "TRUE")
+confidence_result <- max(confidence_result$n)
+confidence_hitrate <- confidence_result/n
 ggplot(confidence_hit, aes(x=interval, y=n, fill = interval)) + 
   geom_bar(stat = "identity") + geom_text(aes(label = n), vjust = 0)
 
-# define average again
+# define center values
 avg <- mean(df$Price, na.rm = TRUE)
+med <- median(df$Price, na.rm = TRUE)
+mode <- newPredict %>% count(Price)
 
 # define RMSE
 newPredict$error_sqr <- newPredict$error * newPredict$error
@@ -635,14 +648,10 @@ range <- max(df$Price) - min(df$Price) # by normalization
 NRMSE <- RMSE/range
 
 # visualise error distribution
-hist(newPredict$error, breaks=30)
+hist(newPredict$error, breaks=50)
 
 # variable importance
-importance <- varImp(model, scale = FALSE)
-
-
-
-
+vi <- vi_model(model)
 
 
 

@@ -607,12 +607,16 @@ ggplot(newPredict, aes(x=pred, y=Price)) +
   geom_point() + geom_smooth(method='lm') + geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.5) +
   labs(x='Predicted Values', y='Actual Values', title='Predicted vs. Actual Values')
 
-# check wether price is inbetween confidence interval
-newPredict$is_interval <- between(newPredict$Price, newPredict$lwr, newPredict$upr) 
+# add point estimation hit
+newPredict$point <- between(newPredict$error, -5000, 5000)  
+point_hit <- newPredict %>% count(point)
+ggplot(point_hit, aes(x=point, y=n, fill = point)) + 
+  geom_bar(stat = "identity") + geom_text(aes(label = n), vjust = 0)
 
-# plot amount of values in confidence interval
-hit <- newPredict %>% count(is_interval)
-ggplot(hit, aes(x=is_interval, y=n, fill = is_interval)) + 
+# add confidence interval hit
+newPredict$interval <- between(newPredict$Price, newPredict$lwr, newPredict$upr) 
+confidence_hit <- newPredict %>% count(interval)
+ggplot(confidence_hit, aes(x=interval, y=n, fill = interval)) + 
   geom_bar(stat = "identity") + geom_text(aes(label = n), vjust = 0)
 
 # define average again

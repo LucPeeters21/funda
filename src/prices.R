@@ -595,6 +595,10 @@ newPredict <- df %>% select(Provincie, Gemeente, energy, `Lot size (m2)`, `Livin
 model <-  lm(Price ~ Provincie + Gemeente + energy + `Lot size (m2)`+`Living space size (m2)` + rooms * bedrooms * bathrooms + toilets + living_floors + `House type` + placement + frontyard*backyard + Roof + as.factor(age), data = df)
 summary(model)
 
+# define n
+newPredict <- na.omit(newPredict)
+n <- nrow(newPredict)
+
 # model assumptions
 #assumptions <- plot(model)
 
@@ -606,6 +610,7 @@ newPredict$check <- newPredict$fit0 - newPredict$fit
 newPredict <- newPredict %>% select(-fit0, -check)
 newPredict <- newPredict %>% rename(pred = fit)
 newPredict$error <- newPredict$Price - newPredict$pred
+newPredict$intervalrange <- newPredict$upr - newPredict$lwr
 
 # plot actual and predicted
 ggplot(newPredict, aes(x=pred, y=Price)) +
@@ -637,7 +642,6 @@ mode <- newPredict %>% count(Price)
 
 # define RMSE
 newPredict$error_sqr <- newPredict$error * newPredict$error
-n <- nrow(newPredict)
 MSE <- sum(newPredict$error_sqr, na.rm = TRUE)/n
 RMSE <- sqrt(MSE)
 
@@ -647,8 +651,33 @@ RMSE <- sqrt(MSE)
 range <- max(df$Price) - min(df$Price) # by normalization
 NRMSE <- RMSE/range
 
-# visualise error distribution
+# visualize error distribution
 hist(newPredict$error, breaks=50)
+
+# visualize FALSE/TRUE distribution
+range_groups <- newPredict %>% select(Price, pred, interval)
+range_groups$group <-       ifelse(range_groups$Price < 300000, "< 300k", 
+                                    ifelse(range_groups$Price < 400000, "300k - 400k",
+                                           ifelse(range_groups$Price < 500000, "400K - 500K",
+                                                  ifelse(range_groups$Price < 600000, "500k - 600k",
+                                                         ifelse(range_groups$Price < 700000, "600k - 700k",
+                                                                ifelse(range_groups$Price < 800000, "700k - 800k",
+                                                                       ifelse(range_groups$Price < 900000, "800k - 900k",
+                                                                              ifelse(range_groups$Price < 1000000, "900k - 1m", ">= 1m")))))
+                                           )))
+
+amount_groups <- range_groups %>% count(group)
+range_groups <- range_groups %>% group_by(group) %>% count(interval)
+range_groups <- merge(range_groups, amount_groups, by = "group")
+range_groups <- range_groups %>% subset(interval == "TRUE")
+range_groups$hit <- range_groups$n.x/range_groups$n.y
+range_groups <- range_groups %>% select(group, hit)
+
+ggplot(range_groups, aes(x=reorder(group, hit), y=hit)) +
+  geom_point() +
+  labs(x='Segment', y='Hit', title='Model Performance') + 
+  coord_flip()
+
 
 # variable importance
 vi <- vi_model(model)

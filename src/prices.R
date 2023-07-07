@@ -655,27 +655,41 @@ NRMSE <- RMSE/range
 hist(newPredict$error, breaks=50)
 
 # visualize FALSE/TRUE distribution
-range_groups <- newPredict %>% select(Price, pred, interval)
+range_groups <- newPredict %>% select(Price, pred, intervalrange, interval, point)
 range_groups$group <-       ifelse(range_groups$Price < 300000, "< 300k", 
                                     ifelse(range_groups$Price < 400000, "300k - 400k",
                                            ifelse(range_groups$Price < 500000, "400K - 500K",
                                                   ifelse(range_groups$Price < 600000, "500k - 600k",
-                                                         ifelse(range_groups$Price < 700000, "600k - 700k",
-                                                                ifelse(range_groups$Price < 800000, "700k - 800k",
-                                                                       ifelse(range_groups$Price < 900000, "800k - 900k",
-                                                                              ifelse(range_groups$Price < 1000000, "900k - 1m", ">= 1m")))))
-                                           )))
+                                                         ifelse(range_groups$Price < 700000, "600k - 700k", ">= 700k"
+                                                                       )))))
 
-amount_groups <- range_groups %>% count(group)
-range_groups <- range_groups %>% group_by(group) %>% count(interval)
-range_groups <- merge(range_groups, amount_groups, by = "group")
-range_groups <- range_groups %>% subset(interval == "TRUE")
-range_groups$hit <- range_groups$n.x/range_groups$n.y
-range_groups <- range_groups %>% select(group, hit)
+mean_intervals <- range_groups %>% group_by(group) %>% select(intervalrange)
+mean_intervals <- mean_intervals %>% group_by(group) %>% summarise_at(vars(intervalrange), list(mean_interval = mean))
 
-ggplot(range_groups, aes(x=reorder(group, hit), y=hit)) +
+amount_groups <- range_groups %>% count(group) 
+
+# create and plot hit scores for confidence intervals
+interval_groups <- range_groups %>% group_by(group) %>% count(interval)
+interval_groups <- merge(interval_groups, amount_groups, by = "group")
+interval_groups <- interval_groups %>% subset(interval == "TRUE")
+interval_groups$hit <- interval_groups$n.x/interval_groups$n.y
+interval_groups <- interval_groups %>% select(group, hit)
+
+ggplot(interval_groups, aes(x=reorder(group, hit), y=hit)) +
   geom_point() +
-  labs(x='Segment', y='Hit', title='Model Performance') + 
+  labs(x='Segment', y='Hit', title='Model Performance - Confidence Intervals') + 
+  coord_flip()
+
+# create and plot hit scores for point predictions
+point_groups <- range_groups %>% group_by(group) %>% count(point)
+point_groups <- merge(point_groups, amount_groups, by = "group")
+point_groups <- point_groups %>% subset(point == "TRUE")
+point_groups$hit <- point_groups$n.x/point_groups$n.y
+point_groups <- point_groups %>% select(group, hit)
+
+ggplot(point_groups, aes(x=reorder(group, hit), y=hit)) +
+  geom_point() +
+  labs(x='Segment', y='Hit', title='Model Performance - Point Predictions') + 
   coord_flip()
 
 

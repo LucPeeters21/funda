@@ -38,6 +38,7 @@ library(openxlsx)
 library(caret)
 library(vip)
 library(earth)
+library(fuzzyjoin)
 
 options(max.print=1000000)
 options(scipen = 999)
@@ -465,6 +466,9 @@ df$Price[which(is.na(df$Price))] <- mean(df$Price,na.rm = T)
 df$age[which(is.na(df$age))] <- mean(df$age,na.rm = T)
 df$`Estimated neighbourhood price per m2`[which(is.na(df$`Estimated neighbourhood price per m2`))] <- mean(df$`Estimated neighbourhood price per m2`,na.rm = T)
 
+# rename energy label
+df <- df %>% rename(energy = `Energy label`)
+
 # replace missing data 
 df$toilets <- recode(df$toilets, "NA = 0")
 
@@ -581,8 +585,6 @@ ggplot(data = df, aes(x = placement, y = Price)) +
   coord_cartesian(ylim = c(200000, 1500000)) + stat_summary(fun.y=mean, geom="point", shape=1, size=5, color="red", fill="red")
 
 
-df <- df %>% rename(energy = `Energy label`)
-
 #############################
 ####      modelling      ####
 #############################
@@ -601,6 +603,13 @@ n <- nrow(newPredict)
 
 # model assumptions
 #assumptions <- plot(model)
+
+# variable importance
+variables <- as.data.frame(ls(newPredict))
+variables <- variables %>% rename(Variable = 'ls(newPredict)')
+vi <- vi_model(model)
+importance <- stringdist_right_join(vi, variables)
+
 
 # add predictions and intervals to dataframe
 newPredict$fit0 <-  predict(model, newPredict) 
@@ -654,6 +663,9 @@ NRMSE <- RMSE/range
 # visualize error distribution
 hist(newPredict$error, breaks=50)
 
+# indicate over/under estimation
+newPredict$underestimation <- ifelse(newPredict$pred < newPredict$Price, "1", "0")
+
 # visualize FALSE/TRUE distribution
 range_groups <- newPredict %>% select(Price, pred, intervalrange, interval, point)
 range_groups$group <-       ifelse(range_groups$Price < 300000, "< 300k", 
@@ -677,8 +689,7 @@ interval_groups <- interval_groups %>% select(group, hit)
 
 ggplot(interval_groups, aes(x=reorder(group, hit), y=hit)) +
   geom_point() +
-  labs(x='Segment', y='Hit', title='Model Performance - Confidence Intervals') + 
-  coord_flip()
+  labs(x='Segment', y='Hit', title='Model Performance - Confidence Intervals') 
 
 # create and plot hit scores for point predictions
 point_groups <- range_groups %>% group_by(group) %>% count(point)
@@ -689,12 +700,8 @@ point_groups <- point_groups %>% select(group, hit)
 
 ggplot(point_groups, aes(x=reorder(group, hit), y=hit)) +
   geom_point() +
-  labs(x='Segment', y='Hit', title='Model Performance - Point Predictions') + 
-  coord_flip()
+  labs(x='Segment', y='Hit', title='Model Performance - Point Predictions') 
 
-
-# variable importance
-vi <- vi_model(model)
 
 
 
